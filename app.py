@@ -62,39 +62,39 @@ def auth_token(f) :
         try : 
             jwt.decode(token, app.config['SECRET_KEY'], algorithms = ['HS256'])
         except : 
-            return jsonify({'msg' : 'Invalid token' }), 401
+            return make_response(jsonify({'error' : 'Invalid token' }), 401)
         return f(*args, **kwrgs)
     return decorator
 
 class Register(Resource) :
 
     def post(self) :
-        dataUsername = request.form.get('username')
-        dataPassword = request.form.get('password')
+        dataUsername = request.json.get('username')
+        dataPassword = request.json.get('password')
 
         if dataUsername and dataPassword :
             
             user = AuthModel.query.filter_by(username = dataUsername).first()
 
             if user : 
-                return make_response(jsonify({"msg": "Username exist"}), 200)
+                return make_response(jsonify({"error": "Username exist"}), 401)
             data = AuthModel(username=dataUsername, password = generate_password_hash(dataPassword, method = 'sha256'))
             db.session.add(data)
             db.session.commit()
             return make_response(jsonify({"msg": "Registration Success"}), 200)
-        return make_response(jsonify({"msg": "Registration failed"}), 200)
+        return make_response(jsonify({"error": "Registration failed"}), 401)
         
 #class routing login
 class Login(Resource) :
     def post(self) :
-        dataUsername = request.form.get('username')
-        dataPassword = request.form.get('password')
+        dataUsername = request.json.get('username')
+        dataPassword = request.json.get('password')
         user = AuthModel.query.filter_by(username = dataUsername).first()
 
         if user :
             if check_password_hash(user.password, dataPassword) :
                 token = jwt.encode({'username' : dataUsername, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(hours = 8)}, app.config['SECRET_KEY'], algorithm="HS256")
-                return jsonify({"msg": "Login Succesfull", 'token' : token})
+                return jsonify({"msg": "Login Succesfull", 'token' : token, 'email' : dataUsername,  'id' : user.id, 'response' : []})
         return make_response(jsonify({"msg": "Login Failed"}))
 
 class Menus(Resource) :
@@ -159,6 +159,18 @@ class ListBatch(Resource) :
         ]
         return make_response(jsonify(result), 200)
     
+class ErrorReport(Resource) : 
+    @auth_token
+    def get(self) :
+        data = [
+            {
+                'microscope' : 1,
+                'tanggal' : 'February 2023',
+                'error_count' : '2',
+            },
+
+        ]
+        return make_response(jsonify(data), 200)
 class Summary(Resource) : 
     @auth_token
     def get(self) :
@@ -291,6 +303,7 @@ api.add_resource(Register,"/api/register", methods=['POST'])
 api.add_resource(Login,"/api/login", methods=['POST'])
 api.add_resource(Menus,"/api/menu", methods=['GET', 'POST'])
 api.add_resource(ListBatch,"/api/listbatch", methods=['GET'])
+api.add_resource(ErrorReport,"/api/errorreport", methods=['GET'])
 api.add_resource(Summary,"/api/summary", methods=['GET'])
 api.add_resource(Captures,"/api/captures", methods=['GET'])
 api.add_resource(ServerStatus,"/api/serverstatus", methods=['GET'])
